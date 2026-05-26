@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>تثبيت CY STORE</title>
+    <style>
+        body { font-family: -apple-system, sans-serif; text-align: center; padding: 50px; background-color: #0d0d0d; color: #ffffff; }
+        h2 { color: #007aff; }
+        .btn { display: inline-block; padding: 15px 30px; background-color: #007aff; color: white; text-decoration: none; border-radius: 12px; font-size: 18px; font-weight: bold; margin-top: 20px; }
+    </style>
+</head>
+<body>
+    <h2>🚀 تم توقيع CY STORE بنجاح!</h2>
+    <p>جاري تحويلك لتثبيت التطبيق تلقائياً...</p>
+    <a href="itms-services://?action=download-manifest&url=https://cy-store.vercel.app/install.plist" class="btn">اضغط هنا إذا لم يظهر التثبيت</a>
+    <script>
+        setTimeout(function() {
+            window.location.href = "itms-services://?action=download-manifest&url=https://cy-store.vercel.app/install.plist";
+        }, 1500);
+    </script>
+</body>
+</html>
