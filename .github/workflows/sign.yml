@@ -3,8 +3,11 @@ name: Sign CY STORE Automation
 on:
   workflow_dispatch:
     inputs:
-      zip_base64:
-        description: 'Base64 of certs zip'
+      p12_base64:
+        description: 'Base64 of p12 cert'
+        required: true
+      prov_base64:
+        description: 'Base64 of mobileprovision'
         required: true
       password:
         description: 'p12 Password'
@@ -17,17 +20,15 @@ jobs:
   sign_and_release:
     runs-on: macos-latest
     permissions:
-      contents: write # إعطاء صلاحية الكتابة والرفع للأتمتة بشكل صريح
+      contents: write
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v3
 
-      - name: Decode and Unzip Certificates
+      - name: Decode Certificates
         run: |
-          echo "${{ github.event.inputs.zip_base64 }}" | base64 --decode > certs.zip
-          unzip certs.zip
-          mv *.p12 cert.p12 2>/dev/null || true
-          mv *.mobileprovision profile.mobileprovision 2>/dev/null || true
+          echo "${{ github.event.inputs.p12_base64 }}" | base64 --decode > cert.p12
+          echo "${{ github.event.inputs.prov_base64 }}" | base64 --decode > profile.mobileprovision
 
       - name: Install zsign
         run: brew install zsign
@@ -96,11 +97,24 @@ jobs:
           git push origin main
 
       - name: Send Direct Install Link to Telegram
+        if: always() # يضمن التشغيل وإرسال تقرير حتى لو فشل التوقيع لمعرفة المشكلة
         run: |
           VERCEL_PLIST_URL="https://cy-store.vercel.app/install.plist"
           OTA_LINK="itms-services://?action=download-manifest&url=${VERCEL_PLIST_URL}"
           
-          curl -s -X POST https://api.telegram.org/bot8828583983:AAH1M4PFuW7zHNwKkpvhdErYVoT0KEilJjU/sendMessage \
-            -d chat_id="${{ github.event.inputs.chat_id }}" \
-            -d text="تم توقيع برنامج cy store بنجاح واصبح جاهزاً للتحميل 🚀" \
-            -d reply_markup="{\"inline_keyboard\":[[{\"text\":\"اضغط هنا للتثبيت المباشر 📥\",\"url\":\"${OTA_LINK}\"}]]}"
+          # التحقق إذا كان ملف التوقيع نجح وتم إنشاؤه بالفعل
+          if [ -f "CY_STORE_Signed.ipa" ]; then
+            TEXT="🚀 تم توقيع برنامج CY STORE بنجاح واصبح جاهزاً للتحميل الفوري على جهازك!"
+            REPLY_MARKUP='{"inline_keyboard": [[{"text": "اضغط هنا للتثبيت المباشر 📥", "url": "'"${OTA_LINK}"'"}]]}'
+          else
+            TEXT="❌ فشلت عملية التوقيع داخل سيرفر جيت هب. يرجى مراجعة تبويب Actions في المستودع لمعرفة تفاصيل الخطأ (غالباً الباسورد خطأ أو الشهادة منتهية)."
+            REPLY_MARKUP='{"inline_keyboard": []}'
+          fi
+          
+          curl -s -X POST "https://api.telegram.org/bot8828583983:AAH1M4PFuW7zHNwKkpvhdErYVoT0KEilJjU/sendMessage" \
+            -H "Content-Type: application/json" \
+            -d "{
+              \"chat_id\": \"${{ github.event.inputs.chat_id }}\",
+              \"text\": \"$TEXT\",
+              \"reply_markup\": $REPLY_MARKUP
+            }"
