@@ -16,6 +16,8 @@ on:
 jobs:
   sign_and_release:
     runs-on: macos-latest
+    permissions:
+      contents: write # إعطاء صلاحية الكتابة والرفع للأتمتة بشكل صريح
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v3
@@ -32,17 +34,12 @@ jobs:
 
       - name: Find and Sign IPA File
         run: |
-          # البحث تلقائياً عن أي ملف ipa موجود في المستودع واعتماده كمصدر
           ORIGINAL_IPA=$(ls *.ipa | head -n 1)
-          
           if [ -z "$ORIGINAL_IPA" ]; then
             echo "❌ لم يتم العثور على أي ملف IPA في جذر المستودع!"
             exit 1
           fi
-          
           echo "📦 الملف المستخدم للتوقيع هو: $ORIGINAL_IPA"
-          
-          # عملية التوقيع باستخدام zsign
           zsign -k cert.p12 -p '${{ github.event.inputs.password }}' -m profile.mobileprovision "$ORIGINAL_IPA" -o CY_STORE_Signed.ipa
 
       - name: Create Release and Upload IPA
@@ -100,7 +97,6 @@ jobs:
 
       - name: Send Direct Install Link to Telegram
         run: |
-          # تأكد من استبدال cy-store برابط مشروعك الحقيقي على فيرسل
           VERCEL_PLIST_URL="https://cy-store.vercel.app/install.plist"
           OTA_LINK="itms-services://?action=download-manifest&url=${VERCEL_PLIST_URL}"
           
