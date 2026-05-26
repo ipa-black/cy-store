@@ -33,28 +33,41 @@ jobs:
       - name: Install zsign
         run: brew install zsign
 
-      - name: Find and Sign IPA File
+      - name: Inject Certs and Sign IPA
         run: |
           ORIGINAL_IPA=$(ls *.ipa | head -n 1)
-          if [ -z "$ORIGINAL_IPA" ]; then
-            echo "❌ لم يتم العثور على أي ملف IPA في جذر المستودع!"
-            exit 1
-          fi
-          echo "📦 الملف المستخدم هو: $ORIGINAL_IPA"
-          zsign -k cert.p12 -p '${{ github.event.inputs.password }}' -m profile.mobileprovision "$ORIGINAL_IPA" -o CY_STORE_Signed.ipa
+          # 1. فك ضغط التطبيق
+          unzip -q "$ORIGINAL_IPA" -d temp_ipa
+          APP_DIR=$(ls temp_ipa/Payload/)
+          
+          # 2. حقن الشهادات داخل التطبيق (للوصول البرمجي السريع)
+          cp cert.p12 "temp_ipa/Payload/$APP_DIR/certificate.p12"
+          cp profile.mobileprovision "temp_ipa/Payload/$APP_DIR/embedded.mobileprovision"
+          
+          # 3. استخراج البندل آيدي الأصلي لضمان التطابق
+          PLIST_PATH="temp_ipa/Payload/$APP_DIR/Info.plist"
+          APP_BUNDLE_ID=$(plutil -extract CFBundleIdentifier raw "$PLIST_PATH" || echo "com.cystore.app")
+          echo "BUNDLE_ID=$APP_BUNDLE_ID" >> $GITHUB_ENV
+          
+          # 4. إعادة ضغط التطبيق
+          cd temp_ipa
+          zip -qr ../modified.ipa .
+          cd ..
+          
+          # 5. التوقيع النهائي
+          zsign -k cert.p12 -p '${{ github.event.inputs.password }}' -m profile.mobileprovision "modified.ipa" -o CY_STORE_Signed.ipa
 
-      - name: Create Release and Upload IPA
+      - name: Create Release and Upload
         id: create_release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           TAG="v$(date +'%Y%m%d%H%M%S')"
-          gh release create "$TAG" CY_STORE_Signed.ipa --title "CY STORE Release $TAG" --notes "Automated release"
+          gh release create "$TAG" CY_STORE_Signed.ipa --title "CY STORE $TAG"
           echo "RELEASE_URL=https://github.com/${{ github.repository }}/releases/download/$TAG/CY_STORE_Signed.ipa" >> $GITHUB_ENV
 
-      - name: Generate Plist and Professional HTML
+      - name: Generate Plist and Professional Web Page
         run: |
-          # إنشاء ملف التثبيت
           cat <<EOF > install.plist
           <?xml version="1.0" encoding="UTF-8"?>
           <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -75,7 +88,7 @@ jobs:
                       <key>metadata</key>
                       <dict>
                           <key>bundle-identifier</key>
-                          <string>com.cystore.app</string>
+                          <string>${{ env.BUNDLE_ID }}</string>
                           <key>bundle-version</key>
                           <string>1.0</string>
                           <key>kind</key>
@@ -89,49 +102,38 @@ jobs:
           </plist>
           EOF
           
-          # إنشاء صفحة الويب الاحترافية
           cat <<EOF > index.html
           <!DOCTYPE html>
           <html lang="ar" dir="rtl">
           <head>
               <meta charset="UTF-8">
               <meta name="viewport" content="width=device-width, initial-scale=1.0">
-              <title>تفعيل اشتراك CY STORE</title>
+              <title>تفعيل CY STORE</title>
               <style>
-                  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background-color: #000000; color: #ffffff; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; margin: 0; }
-                  .container { background-color: #1c1c1e; padding: 40px 30px; border-radius: 24px; text-align: center; box-shadow: 0 10px 40px rgba(0,0,0,0.6); width: 85%; max-width: 400px; }
-                  .icon { font-size: 65px; margin-bottom: 15px; }
-                  h1 { font-size: 24px; margin-bottom: 10px; color: #ffffff; font-weight: bold; }
-                  p { font-size: 15px; color: #8e8e93; margin-bottom: 35px; line-height: 1.6; }
-                  .btn { display: inline-block; background-color: #007aff; color: #ffffff; text-decoration: none; padding: 16px; border-radius: 14px; font-size: 17px; font-weight: 600; width: 100%; box-sizing: border-box; transition: background-color 0.2s; }
-                  .btn:active { background-color: #0056b3; }
+                  body { font-family: -apple-system, sans-serif; background: #000; color: #fff; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; }
+                  .card { background: #1c1c1e; padding: 30px; border-radius: 20px; text-align: center; width: 80%; max-width: 350px; }
+                  .btn { display: block; background: #007aff; color: #fff; padding: 15px; border-radius: 12px; text-decoration: none; font-weight: bold; margin-top: 20px; }
               </style>
           </head>
           <body>
-              <div class="container">
-                  <div class="icon">✨</div>
-                  <h1>تم تفعيل اشتراكك!</h1>
-                  <p>مرحباً بك، تم تفعيل اشتراكك في برنامج CY STORE بنجاح. التطبيق جاهز الآن للتثبيت على جهازك.</p>
-                  <a href="itms-services://?action=download-manifest&url=https://cy-store.vercel.app/install.plist" class="btn">تثبيت التطبيق الآن</a>
+              <div class="card">
+                  <h2>تم تفعيل اشتراكك!</h2>
+                  <p>تطبيق CY STORE جاهز للتثبيت على جهازك.</p>
+                  <a href="itms-services://?action=download-manifest&url=https://cy-store.vercel.app/install.plist" class="btn">تثبيت الآن</a>
               </div>
-              <script>
-                  setTimeout(function() {
-                      window.location.href = "itms-services://?action=download-manifest&url=https://cy-store.vercel.app/install.plist";
-                  }, 2000);
-              </script>
           </body>
           </html>
           EOF
 
-      - name: Commit and Push Files
+      - name: Commit and Push
         run: |
           git config --global user.name 'github-actions[bot]'
           git config --global user.email 'github-actions[bot]@users.noreply.github.com'
           git add install.plist index.html
-          git commit -m "Update OTA install files [skip ci]" || exit 0
+          git commit -m "Update install files [skip ci]" || exit 0
           git push origin main
 
-      - name: Send Direct Install Link to Telegram
+      - name: Send Notification
         if: always()
         run: |
           if [ -f "CY_STORE_Signed.ipa" ]; then
@@ -142,5 +144,5 @@ jobs:
           else
             curl -X POST "https://api.telegram.org/bot8828583983:AAH1M4PFuW7zHNwKkpvhdErYVoT0KEilJjU/sendMessage" \
               --data-urlencode "chat_id=${{ github.event.inputs.chat_id }}" \
-              --data-urlencode "text=❌ فشلت عملية التفعيل. تأكد من صحة كلمة المرور وصلاحية الشهادة."
+              --data-urlencode "text=❌ فشل التفعيل. تأكد من الملفات والباسورد."
           fi
