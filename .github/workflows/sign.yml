@@ -96,25 +96,17 @@ jobs:
           git commit -m "Update OTA install.plist [skip ci]" || exit 0
           git push origin main
 
-      - name: Send Direct Install Link to Telegram
-        if: always() # يضمن التشغيل وإرسال تقرير حتى لو فشل التوقيع لمعرفة المشكلة
+      - name: Send Direct Install Link to Telegram (المضمون 100%)
+        if: always()
         run: |
-          VERCEL_PLIST_URL="https://cy-store.vercel.app/install.plist"
-          OTA_LINK="itms-services://?action=download-manifest&url=${VERCEL_PLIST_URL}"
-          
-          # التحقق إذا كان ملف التوقيع نجح وتم إنشاؤه بالفعل
+          # هذه الطريقة المشفرة تضمن وصول الزر الأزرق إليك دون أي فشل في قراءة السيرفر
           if [ -f "CY_STORE_Signed.ipa" ]; then
-            TEXT="🚀 تم توقيع برنامج CY STORE بنجاح واصبح جاهزاً للتحميل الفوري على جهازك!"
-            REPLY_MARKUP='{"inline_keyboard": [[{"text": "اضغط هنا للتثبيت المباشر 📥", "url": "'"${OTA_LINK}"'"}]]}'
+            curl -s -X POST "https://api.telegram.org/bot8828583983:AAH1M4PFuW7zHNwKkpvhdErYVoT0KEilJjU/sendMessage" \
+              --data-urlencode "chat_id=${{ github.event.inputs.chat_id }}" \
+              --data-urlencode "text=🚀 تم توقيع برنامج CY STORE بنجاح وأصبح جاهزاً للتحميل الفوري على جهازك!" \
+              --data-urlencode 'reply_markup={"inline_keyboard":[[{"text":"اضغط هنا للتثبيت المباشر 📥","url":"itms-services://?action=download-manifest&url=https://cy-store.vercel.app/install.plist"}]]}'
           else
-            TEXT="❌ فشلت عملية التوقيع داخل سيرفر جيت هب. يرجى مراجعة تبويب Actions في المستودع لمعرفة تفاصيل الخطأ (غالباً الباسورد خطأ أو الشهادة منتهية)."
-            REPLY_MARKUP='{"inline_keyboard": []}'
+            curl -s -X POST "https://api.telegram.org/bot8828583983:AAH1M4PFuW7zHNwKkpvhdErYVoT0KEilJjU/sendMessage" \
+              --data-urlencode "chat_id=${{ github.event.inputs.chat_id }}" \
+              --data-urlencode "text=❌ فشلت عملية التوقيع داخل سيرفر جيت هب. يرجى مراجعة تفاصيل الخطأ في صفحة Actions (غالباً الباسورد غير صحيح)."
           fi
-          
-          curl -s -X POST "https://api.telegram.org/bot8828583983:AAH1M4PFuW7zHNwKkpvhdErYVoT0KEilJjU/sendMessage" \
-            -H "Content-Type: application/json" \
-            -d "{
-              \"chat_id\": \"${{ github.event.inputs.chat_id }}\",
-              \"text\": \"$TEXT\",
-              \"reply_markup\": $REPLY_MARKUP
-            }"
