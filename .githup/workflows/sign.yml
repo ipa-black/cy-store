@@ -1,0 +1,100 @@
+name: Sign CY STORE Automation
+
+on:
+  workflow_dispatch:
+    inputs:
+      zip_base64:
+        description: 'Base64 of certs zip'
+        required: true
+      password:
+        description: 'p12 Password'
+        required: true
+      chat_id:
+        description: 'Telegram Chat ID'
+        required: true
+
+jobs:
+  sign_and_release:
+    runs-on: macos-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v3
+
+      - name: Decode and Unzip Certificates
+        run: |
+          echo "${{ github.event.inputs.zip_base64 }}" | base64 --decode > certs.zip
+          unzip certs.zip
+          mv *.p12 cert.p12 2>/dev/null || true
+          mv *.mobileprovision profile.mobileprovision 2>/dev/null || true
+
+      - name: Install zsign
+        run: brew install zsign
+
+      - name: Sign CY STORE IPA
+        run: |
+          # تأكد من رفع التطبيق الخام في جذر المستودع باسم unsigned_cystore.ipa
+          zsign -k cert.p12 -p '${{ github.event.inputs.password }}' -m profile.mobileprovision unsigned_cystore.ipa -o CY_STORE_Signed.ipa
+
+      - name: Create Release and Upload IPA
+        id: create_release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG="v$(date +'%Y%m%d%H%M%S')"
+          gh release create "$TAG" CY_STORE_Signed.ipa --title "CY STORE Release $TAG" --notes "Automated signed release"
+          echo "RELEASE_URL=https://github.com/${{ github.repository }}/releases/download/$TAG/CY_STORE_Signed.ipa" >> $GITHUB_ENV
+
+      - name: Generate OTA Plist
+        run: |
+          cat <<EOF > install.plist
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+              <key>items</key>
+              <array>
+                  <dict>
+                      <key>assets</key>
+                      <array>
+                          <dict>
+                              <key>kind</key>
+                              <string>software-package</string>
+                              <key>url</key>
+                              <string>${{ env.RELEASE_URL }}</string>
+                          </dict>
+                      </array>
+                      <key>metadata</key>
+                      <dict>
+                          <key>bundle-identifier</key>
+                          <string>com.cystore.app</string>
+                          <key>bundle-version</key>
+                          <string>1.0</string>
+                          <key>kind</key>
+                          <string>software</string>
+                          <key>title</key>
+                          <string>CY STORE</string>
+                      </dict>
+                  </dict>
+              </array>
+          </dict>
+          </plist>
+          EOF
+
+      - name: Commit and Push Updated Plist
+        run: |
+          git config --global user.name 'github-actions[bot]'
+          git config --global user.email 'github-actions[bot]@users.noreply.github.com'
+          git add install.plist
+          git commit -m "Update OTA install.plist [skip ci]" || exit 0
+          git push origin main
+
+      - name: Send Direct Install Link to Telegram
+        run: |
+          # ⚠️ تنبيه: قم باستبدال الكلمة الكبيرة برابط مشروعك الحقيقي بعد رفعه على فيرسل
+          VERCEL_PLIST_URL="https://اسم_مشروعك_في_فيرسل.vercel.app/install.plist"
+          OTA_LINK="itms-services://?action=download-manifest&url=${VERCEL_PLIST_URL}"
+          
+          curl -s -X POST https://api.telegram.org/bot8828583983:AAH1M4PFuW7zHNwKkpvhdErYVoT0KEilJjU/sendMessage \
+            -d chat_id="${{ github.event.inputs.chat_id }}" \
+            -d text="تم توقيع برنامج cy store بنجاح واصبح جاهزاً للتحميل 🚀" \
+            -d reply_markup="{\"inline_keyboard\":[[{\"text\":\"اضغط هنا للتثبيت المباشر 📥\",\"url\":\"${OTA_LINK}\"}]]}"
