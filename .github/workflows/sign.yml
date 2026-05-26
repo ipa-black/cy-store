@@ -30,10 +30,20 @@ jobs:
       - name: Install zsign
         run: brew install zsign
 
-      - name: Sign CY STORE IPA
+      - name: Find and Sign IPA File
         run: |
-          # تأكد من رفع التطبيق الخام في جذر المستودع باسم unsigned_cystore.ipa
-          zsign -k cert.p12 -p '${{ github.event.inputs.password }}' -m profile.mobileprovision unsigned_cystore.ipa -o CY_STORE_Signed.ipa
+          # البحث تلقائياً عن أي ملف ipa موجود في المستودع واعتماده كمصدر
+          ORIGINAL_IPA=$(ls *.ipa | head -n 1)
+          
+          if [ -z "$ORIGINAL_IPA" ]; then
+            echo "❌ لم يتم العثور على أي ملف IPA في جذر المستودع!"
+            exit 1
+          fi
+          
+          echo "📦 الملف المستخدم للتوقيع هو: $ORIGINAL_IPA"
+          
+          # عملية التوقيع باستخدام zsign
+          zsign -k cert.p12 -p '${{ github.event.inputs.password }}' -m profile.mobileprovision "$ORIGINAL_IPA" -o CY_STORE_Signed.ipa
 
       - name: Create Release and Upload IPA
         id: create_release
@@ -90,8 +100,8 @@ jobs:
 
       - name: Send Direct Install Link to Telegram
         run: |
-          # ⚠️ تنبيه: قم باستبدال الكلمة الكبيرة برابط مشروعك الحقيقي بعد رفعه على فيرسل
-          VERCEL_PLIST_URL="https://اسم_مشروعك_في_فيرسل.vercel.app/install.plist"
+          # تأكد من استبدال cy-store برابط مشروعك الحقيقي على فيرسل
+          VERCEL_PLIST_URL="https://cy-store.vercel.app/install.plist"
           OTA_LINK="itms-services://?action=download-manifest&url=${VERCEL_PLIST_URL}"
           
           curl -s -X POST https://api.telegram.org/bot8828583983:AAH1M4PFuW7zHNwKkpvhdErYVoT0KEilJjU/sendMessage \
