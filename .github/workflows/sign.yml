@@ -40,7 +40,7 @@ jobs:
             echo "❌ لم يتم العثور على أي ملف IPA في جذر المستودع!"
             exit 1
           fi
-          echo "📦 الملف المستخدم للتوقيع هو: $ORIGINAL_IPA"
+          echo "📦 الملف المستخدم هو: $ORIGINAL_IPA"
           zsign -k cert.p12 -p '${{ github.event.inputs.password }}' -m profile.mobileprovision "$ORIGINAL_IPA" -o CY_STORE_Signed.ipa
 
       - name: Create Release and Upload IPA
@@ -49,12 +49,12 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           TAG="v$(date +'%Y%m%d%H%M%S')"
-          gh release create "$TAG" CY_STORE_Signed.ipa --title "CY STORE Release $TAG" --notes "Automated signed release"
+          gh release create "$TAG" CY_STORE_Signed.ipa --title "CY STORE Release $TAG" --notes "Automated release"
           echo "RELEASE_URL=https://github.com/${{ github.repository }}/releases/download/$TAG/CY_STORE_Signed.ipa" >> $GITHUB_ENV
 
-      - name: Generate OTA Plist and HTML Redirect Page
+      - name: Generate Plist and Professional HTML
         run: |
-          # 1. إنشاء ملف التثبيت
+          # إنشاء ملف التثبيت
           cat <<EOF > install.plist
           <?xml version="1.0" encoding="UTF-8"?>
           <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -89,34 +89,41 @@ jobs:
           </plist>
           EOF
           
-          # 2. إنشاء صفحة ويب ذكية لتخطي حظر تيليجرام
+          # إنشاء صفحة الويب الاحترافية
           cat <<EOF > index.html
           <!DOCTYPE html>
           <html lang="ar" dir="rtl">
           <head>
               <meta charset="UTF-8">
               <meta name="viewport" content="width=device-width, initial-scale=1.0">
-              <title>تثبيت CY STORE</title>
+              <title>تفعيل اشتراك CY STORE</title>
               <style>
-                  body { font-family: -apple-system, sans-serif; text-align: center; padding: 50px; background-color: #0d0d0d; color: #ffffff; }
-                  h2 { color: #007aff; }
-                  .btn { display: inline-block; padding: 15px 30px; background-color: #007aff; color: white; text-decoration: none; border-radius: 12px; font-size: 18px; font-weight: bold; margin-top: 20px; }
+                  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background-color: #000000; color: #ffffff; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; margin: 0; }
+                  .container { background-color: #1c1c1e; padding: 40px 30px; border-radius: 24px; text-align: center; box-shadow: 0 10px 40px rgba(0,0,0,0.6); width: 85%; max-width: 400px; }
+                  .icon { font-size: 65px; margin-bottom: 15px; }
+                  h1 { font-size: 24px; margin-bottom: 10px; color: #ffffff; font-weight: bold; }
+                  p { font-size: 15px; color: #8e8e93; margin-bottom: 35px; line-height: 1.6; }
+                  .btn { display: inline-block; background-color: #007aff; color: #ffffff; text-decoration: none; padding: 16px; border-radius: 14px; font-size: 17px; font-weight: 600; width: 100%; box-sizing: border-box; transition: background-color 0.2s; }
+                  .btn:active { background-color: #0056b3; }
               </style>
           </head>
           <body>
-              <h2>🚀 تم توقيع CY STORE بنجاح!</h2>
-              <p>جاري تحويلك لتثبيت التطبيق تلقائياً...</p>
-              <a href="itms-services://?action=download-manifest&url=https://cy-store.vercel.app/install.plist" class="btn">اضغط هنا إذا لم يظهر التثبيت</a>
+              <div class="container">
+                  <div class="icon">✨</div>
+                  <h1>تم تفعيل اشتراكك!</h1>
+                  <p>مرحباً بك، تم تفعيل اشتراكك في برنامج CY STORE بنجاح. التطبيق جاهز الآن للتثبيت على جهازك.</p>
+                  <a href="itms-services://?action=download-manifest&url=https://cy-store.vercel.app/install.plist" class="btn">تثبيت التطبيق الآن</a>
+              </div>
               <script>
                   setTimeout(function() {
                       window.location.href = "itms-services://?action=download-manifest&url=https://cy-store.vercel.app/install.plist";
-                  }, 1500);
+                  }, 2000);
               </script>
           </body>
           </html>
           EOF
 
-      - name: Commit and Push Updated Plist and HTML
+      - name: Commit and Push Files
         run: |
           git config --global user.name 'github-actions[bot]'
           git config --global user.email 'github-actions[bot]@users.noreply.github.com'
@@ -128,13 +135,12 @@ jobs:
         if: always()
         run: |
           if [ -f "CY_STORE_Signed.ipa" ]; then
-            # نرسل الآن رابط HTML عادي يقبله تيليجرام بدون أي مشاكل
             curl -X POST "https://api.telegram.org/bot8828583983:AAH1M4PFuW7zHNwKkpvhdErYVoT0KEilJjU/sendMessage" \
               --data-urlencode "chat_id=${{ github.event.inputs.chat_id }}" \
-              --data-urlencode "text=🚀 تم توقيع تطبيق CY STORE بنجاح!" \
-              --data-urlencode 'reply_markup={"inline_keyboard":[[{"text":"اضغط هنا للتثبيت المباشر 📥","url":"https://cy-store.vercel.app/index.html"}]]}'
+              --data-urlencode "text=✨ تم تفعيل اشتراكك في برنامج CY STORE بنجاح!" \
+              --data-urlencode 'reply_markup={"inline_keyboard":[[{"text":"تثبيت التطبيق الآن 📥","url":"https://cy-store.vercel.app/index.html"}]]}'
           else
             curl -X POST "https://api.telegram.org/bot8828583983:AAH1M4PFuW7zHNwKkpvhdErYVoT0KEilJjU/sendMessage" \
               --data-urlencode "chat_id=${{ github.event.inputs.chat_id }}" \
-              --data-urlencode "text=❌ فشلت عملية التوقيع داخل السيرفر. راجع الأخطاء."
+              --data-urlencode "text=❌ فشلت عملية التفعيل. تأكد من صحة كلمة المرور وصلاحية الشهادة."
           fi
