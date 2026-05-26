@@ -52,8 +52,9 @@ jobs:
           gh release create "$TAG" CY_STORE_Signed.ipa --title "CY STORE Release $TAG" --notes "Automated signed release"
           echo "RELEASE_URL=https://github.com/${{ github.repository }}/releases/download/$TAG/CY_STORE_Signed.ipa" >> $GITHUB_ENV
 
-      - name: Generate OTA Plist
+      - name: Generate OTA Plist and HTML Redirect Page
         run: |
+          # 1. إنشاء ملف التثبيت
           cat <<EOF > install.plist
           <?xml version="1.0" encoding="UTF-8"?>
           <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -87,26 +88,53 @@ jobs:
           </dict>
           </plist>
           EOF
+          
+          # 2. إنشاء صفحة ويب ذكية لتخطي حظر تيليجرام
+          cat <<EOF > index.html
+          <!DOCTYPE html>
+          <html lang="ar" dir="rtl">
+          <head>
+              <meta charset="UTF-8">
+              <meta name="viewport" content="width=device-width, initial-scale=1.0">
+              <title>تثبيت CY STORE</title>
+              <style>
+                  body { font-family: -apple-system, sans-serif; text-align: center; padding: 50px; background-color: #0d0d0d; color: #ffffff; }
+                  h2 { color: #007aff; }
+                  .btn { display: inline-block; padding: 15px 30px; background-color: #007aff; color: white; text-decoration: none; border-radius: 12px; font-size: 18px; font-weight: bold; margin-top: 20px; }
+              </style>
+          </head>
+          <body>
+              <h2>🚀 تم توقيع CY STORE بنجاح!</h2>
+              <p>جاري تحويلك لتثبيت التطبيق تلقائياً...</p>
+              <a href="itms-services://?action=download-manifest&url=https://cy-store.vercel.app/install.plist" class="btn">اضغط هنا إذا لم يظهر التثبيت</a>
+              <script>
+                  setTimeout(function() {
+                      window.location.href = "itms-services://?action=download-manifest&url=https://cy-store.vercel.app/install.plist";
+                  }, 1500);
+              </script>
+          </body>
+          </html>
+          EOF
 
-      - name: Commit and Push Updated Plist
+      - name: Commit and Push Updated Plist and HTML
         run: |
           git config --global user.name 'github-actions[bot]'
           git config --global user.email 'github-actions[bot]@users.noreply.github.com'
-          git add install.plist
-          git commit -m "Update OTA install.plist [skip ci]" || exit 0
+          git add install.plist index.html
+          git commit -m "Update OTA install files [skip ci]" || exit 0
           git push origin main
 
-      - name: Send Direct Install Link to Telegram (المضمون 100%)
+      - name: Send Direct Install Link to Telegram
         if: always()
         run: |
-          # هذه الطريقة المشفرة تضمن وصول الزر الأزرق إليك دون أي فشل في قراءة السيرفر
           if [ -f "CY_STORE_Signed.ipa" ]; then
-            curl -s -X POST "https://api.telegram.org/bot8828583983:AAH1M4PFuW7zHNwKkpvhdErYVoT0KEilJjU/sendMessage" \
+            # نرسل الآن رابط HTML عادي يقبله تيليجرام بدون أي مشاكل
+            curl -X POST "https://api.telegram.org/bot8828583983:AAH1M4PFuW7zHNwKkpvhdErYVoT0KEilJjU/sendMessage" \
               --data-urlencode "chat_id=${{ github.event.inputs.chat_id }}" \
-              --data-urlencode "text=🚀 تم توقيع برنامج CY STORE بنجاح وأصبح جاهزاً للتحميل الفوري على جهازك!" \
-              --data-urlencode 'reply_markup={"inline_keyboard":[[{"text":"اضغط هنا للتثبيت المباشر 📥","url":"itms-services://?action=download-manifest&url=https://cy-store.vercel.app/install.plist"}]]}'
+              --data-urlencode "text=🚀 تم توقيع تطبيق CY STORE بنجاح!" \
+              --data-urlencode 'reply_markup={"inline_keyboard":[[{"text":"اضغط هنا للتثبيت المباشر 📥","url":"https://cy-store.vercel.app/index.html"}]]}'
           else
-            curl -s -X POST "https://api.telegram.org/bot8828583983:AAH1M4PFuW7zHNwKkpvhdErYVoT0KEilJjU/sendMessage" \
+            curl -X POST "https://api.telegram.org/bot8828583983:AAH1M4PFuW7zHNwKkpvhdErYVoT0KEilJjU/sendMessage" \
               --data-urlencode "chat_id=${{ github.event.inputs.chat_id }}" \
-              --data-urlencode "text=❌ فشلت عملية التوقيع داخل سيرفر جيت هب. يرجى مراجعة تفاصيل الخطأ في صفحة Actions (غالباً الباسورد غير صحيح)."
+              --data-urlencode "text=❌ فشلت عملية التوقيع داخل السيرفر. راجع الأخطاء."
           fi
