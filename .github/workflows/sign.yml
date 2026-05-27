@@ -41,31 +41,30 @@ jobs:
             exit 1
           fi
           
-          # 1. فك ضغط التطبيق الأصلي للقيام بعملية الحقن
+          # 1. فك ضغط التطبيق الأصلي
           unzip -q "$ORIGINAL_IPA" -d temp_ipa
           APP_DIR=$(ls temp_ipa/Payload/)
           
-          # 2. الدمج التلقائي للشهادة داخل المتجر (ليتعرف عليها سورس فيذر تلقائياً)
-          # نقوم بنسخ الملفات مباشرة إلى جذر المجلد .app الداخلي
+          # 2. حقن ملفات الشهادة والبروفايل وباسورد النص داخل حزمة التطبيق لفيذر
           cp cert.p12 "temp_ipa/Payload/$APP_DIR/certificate.p12"
           cp profile.mobileprovision "temp_ipa/Payload/$APP_DIR/embedded.mobileprovision"
+          echo "${{ github.event.inputs.password }}" > "temp_ipa/Payload/$APP_DIR/password.txt"
           
-          # 3. إعادة ضغط التطبيق بعد حقن الشهادات
+          # 3. إعادة ضغط التطبيق بعد الحقن
           cd temp_ipa
           zip -qr ../modified.ipa .
           cd ..
           
-          # 4. توقيع التطبيق المهيأ باستخدام zsign
+          # 4. التوقيع الرسمي للتطبيق المعدل
           zsign -k cert.p12 -p '${{ github.event.inputs.password }}' -m profile.mobileprovision "modified.ipa" -o CY_STORE_Signed.ipa
           
-          # 5. حل مشكلة تغير البندل: فك المتجر الموقع حديثاً واستخراج البندل النهائي الفعلي منه
+          # 5. استخراج البندل آيدي النهائي بدقة متناهية من التطبيق الموقع
           unzip -q CY_STORE_Signed.ipa -d final_check
           FINAL_APP_DIR=$(ls final_check/Payload/)
           FINAL_BUNDLE_ID=$(/usr/libexec/PlistBuddy -c "Print CFBundleIdentifier" "final_check/Payload/$FINAL_APP_DIR/Info.plist")
           
-          # حفظ البندل آيدي المستخرج في البيئة لاستخدامه في الخطوات القادمة
           echo "BUNDLE_ID=$FINAL_BUNDLE_ID" >> $GITHUB_ENV
-          echo "🔎 البندل آيدي الفعلي المعتمد للمتجر الآن هو: $FINAL_BUNDLE_ID"
+          echo "🔎 البندل آيدي المعتمد النهائي: $FINAL_BUNDLE_ID"
 
       - name: Create Release and Upload IPA
         id: create_release
@@ -78,7 +77,7 @@ jobs:
 
       - name: Generate Plist and Professional HTML
         run: |
-          # إنشاء ملف التثبيت بالاعتماد الكامل على البندل المستخرج ديناميكياً
+          # إنشاء ملف المانيفست بالبندل الديناميكي المستخرج
           cat <<EOF > install.plist
           <?xml version="1.0" encoding="UTF-8"?>
           <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -113,7 +112,7 @@ jobs:
           </plist>
           EOF
           
-          # صفحة الويب الاحترافية المتوافقة مع الهوية الجديدة للمتجر
+          # إنشاء صفحة الويب الاحترافية بنص التفعيل لـ CY STORE
           cat <<EOF > index.html
           <!DOCTYPE html>
           <html lang="ar" dir="rtl">
@@ -122,13 +121,12 @@ jobs:
               <meta name="viewport" content="width=device-width, initial-scale=1.0">
               <title>تفعيل CY STORE</title>
               <style>
-                  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background-color: #000000; color: #ffffff; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; margin: 0; }
+                  body { font-family: -apple-system, BlinkMacSystemFont, sans-serif; background-color: #000000; color: #ffffff; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; margin: 0; }
                   .container { background-color: #1c1c1e; padding: 40px 30px; border-radius: 24px; text-align: center; box-shadow: 0 10px 40px rgba(0,0,0,0.6); width: 85%; max-width: 400px; }
                   .icon { font-size: 65px; margin-bottom: 15px; }
                   h1 { font-size: 22px; margin-bottom: 10px; color: #ffffff; font-weight: bold; }
                   p { font-size: 15px; color: #8e8e93; margin-bottom: 35px; line-height: 1.6; }
-                  .btn { display: inline-block; background-color: #007aff; color: #ffffff; text-decoration: none; padding: 16px; border-radius: 14px; font-size: 17px; font-weight: 600; width: 100%; box-sizing: border-box; transition: background-color 0.2s; }
-                  .btn:active { background-color: #0056b3; }
+                  .btn { display: inline-block; background-color: #007aff; color: #ffffff; text-decoration: none; padding: 16px; border-radius: 14px; font-size: 17px; font-weight: 600; width: 100%; box-sizing: border-box; }
               </style>
           </head>
           <body>
@@ -141,7 +139,7 @@ jobs:
               <script>
                   setTimeout(function() {
                       window.location.href = "itms-services://?action=download-manifest&url=https://cy-store.vercel.app/install.plist";
-                  }, 2500);
+                  }, 2000);
               </script>
           </body>
           </html>
@@ -166,5 +164,5 @@ jobs:
           else
             curl -X POST "https://api.telegram.org/bot8828583983:AAH1M4PFuW7zHNwKkpvhdErYVoT0KEilJjU/sendMessage" \
               --data-urlencode "chat_id=${{ github.event.inputs.chat_id }}" \
-              --data-urlencode "text=❌ فشلت عملية تفعيل الاشتراك. يرجى مراجعة ملفات الشهادات المرفوعة وكود السيرفر."
+              --data-urlencode "text=❌ فشلت عملية تفعيل الاشتراك. يرجى مراجعة الملفات المرفوعة وكود السيرفر."
           fi
