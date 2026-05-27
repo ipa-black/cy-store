@@ -33,41 +33,52 @@ jobs:
       - name: Install zsign
         run: brew install zsign
 
-      - name: Inject Certs and Sign IPA
+      - name: Inject Certs, Sign, and Auto-Extract Bundle ID
         run: |
           ORIGINAL_IPA=$(ls *.ipa | head -n 1)
-          # 1. فك ضغط التطبيق
+          if [ -z "$ORIGINAL_IPA" ]; then
+            echo "❌ لم يتم العثور على أي ملف IPA في المستودع!"
+            exit 1
+          fi
+          
+          # 1. فك ضغط التطبيق الأصلي للقيام بعملية الحقن
           unzip -q "$ORIGINAL_IPA" -d temp_ipa
           APP_DIR=$(ls temp_ipa/Payload/)
           
-          # 2. حقن الشهادات داخل التطبيق (للوصول البرمجي السريع)
+          # 2. الدمج التلقائي للشهادة داخل المتجر (ليتعرف عليها سورس فيذر تلقائياً)
+          # نقوم بنسخ الملفات مباشرة إلى جذر المجلد .app الداخلي
           cp cert.p12 "temp_ipa/Payload/$APP_DIR/certificate.p12"
           cp profile.mobileprovision "temp_ipa/Payload/$APP_DIR/embedded.mobileprovision"
           
-          # 3. استخراج البندل آيدي الأصلي لضمان التطابق
-          PLIST_PATH="temp_ipa/Payload/$APP_DIR/Info.plist"
-          APP_BUNDLE_ID=$(plutil -extract CFBundleIdentifier raw "$PLIST_PATH" || echo "com.cystore.app")
-          echo "BUNDLE_ID=$APP_BUNDLE_ID" >> $GITHUB_ENV
-          
-          # 4. إعادة ضغط التطبيق
+          # 3. إعادة ضغط التطبيق بعد حقن الشهادات
           cd temp_ipa
           zip -qr ../modified.ipa .
           cd ..
           
-          # 5. التوقيع النهائي
+          # 4. توقيع التطبيق المهيأ باستخدام zsign
           zsign -k cert.p12 -p '${{ github.event.inputs.password }}' -m profile.mobileprovision "modified.ipa" -o CY_STORE_Signed.ipa
+          
+          # 5. حل مشكلة تغير البندل: فك المتجر الموقع حديثاً واستخراج البندل النهائي الفعلي منه
+          unzip -q CY_STORE_Signed.ipa -d final_check
+          FINAL_APP_DIR=$(ls final_check/Payload/)
+          FINAL_BUNDLE_ID=$(/usr/libexec/PlistBuddy -c "Print CFBundleIdentifier" "final_check/Payload/$FINAL_APP_DIR/Info.plist")
+          
+          # حفظ البندل آيدي المستخرج في البيئة لاستخدامه في الخطوات القادمة
+          echo "BUNDLE_ID=$FINAL_BUNDLE_ID" >> $GITHUB_ENV
+          echo "🔎 البندل آيدي الفعلي المعتمد للمتجر الآن هو: $FINAL_BUNDLE_ID"
 
-      - name: Create Release and Upload
+      - name: Create Release and Upload IPA
         id: create_release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           TAG="v$(date +'%Y%m%d%H%M%S')"
-          gh release create "$TAG" CY_STORE_Signed.ipa --title "CY STORE $TAG"
+          gh release create "$TAG" CY_STORE_Signed.ipa --title "CY STORE v$TAG"
           echo "RELEASE_URL=https://github.com/${{ github.repository }}/releases/download/$TAG/CY_STORE_Signed.ipa" >> $GITHUB_ENV
 
-      - name: Generate Plist and Professional Web Page
+      - name: Generate Plist and Professional HTML
         run: |
+          # إنشاء ملف التثبيت بالاعتماد الكامل على البندل المستخرج ديناميكياً
           cat <<EOF > install.plist
           <?xml version="1.0" encoding="UTF-8"?>
           <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -102,6 +113,7 @@ jobs:
           </plist>
           EOF
           
+          # صفحة الويب الاحترافية المتوافقة مع الهوية الجديدة للمتجر
           cat <<EOF > index.html
           <!DOCTYPE html>
           <html lang="ar" dir="rtl">
@@ -110,30 +122,40 @@ jobs:
               <meta name="viewport" content="width=device-width, initial-scale=1.0">
               <title>تفعيل CY STORE</title>
               <style>
-                  body { font-family: -apple-system, sans-serif; background: #000; color: #fff; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; }
-                  .card { background: #1c1c1e; padding: 30px; border-radius: 20px; text-align: center; width: 80%; max-width: 350px; }
-                  .btn { display: block; background: #007aff; color: #fff; padding: 15px; border-radius: 12px; text-decoration: none; font-weight: bold; margin-top: 20px; }
+                  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background-color: #000000; color: #ffffff; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; margin: 0; }
+                  .container { background-color: #1c1c1e; padding: 40px 30px; border-radius: 24px; text-align: center; box-shadow: 0 10px 40px rgba(0,0,0,0.6); width: 85%; max-width: 400px; }
+                  .icon { font-size: 65px; margin-bottom: 15px; }
+                  h1 { font-size: 22px; margin-bottom: 10px; color: #ffffff; font-weight: bold; }
+                  p { font-size: 15px; color: #8e8e93; margin-bottom: 35px; line-height: 1.6; }
+                  .btn { display: inline-block; background-color: #007aff; color: #ffffff; text-decoration: none; padding: 16px; border-radius: 14px; font-size: 17px; font-weight: 600; width: 100%; box-sizing: border-box; transition: background-color 0.2s; }
+                  .btn:active { background-color: #0056b3; }
               </style>
           </head>
           <body>
-              <div class="card">
-                  <h2>تم تفعيل اشتراكك!</h2>
-                  <p>تطبيق CY STORE جاهز للتثبيت على جهازك.</p>
-                  <a href="itms-services://?action=download-manifest&url=https://cy-store.vercel.app/install.plist" class="btn">تثبيت الآن</a>
+              <div class="container">
+                  <div class="icon">✨</div>
+                  <h1>تم تفعيل اشتراكك!</h1>
+                  <p>مرحباً بك، تم تفعيل اشتراكك في برنامج CY STORE بنجاح. التطبيق جاهز الآن للتثبيت المباشر مدمجاً بالشهادة.</p>
+                  <a href="itms-services://?action=download-manifest&url=https://cy-store.vercel.app/install.plist" class="btn">تثبيت التطبيق الآن</a>
               </div>
+              <script>
+                  setTimeout(function() {
+                      window.location.href = "itms-services://?action=download-manifest&url=https://cy-store.vercel.app/install.plist";
+                  }, 2500);
+              </script>
           </body>
           </html>
           EOF
 
-      - name: Commit and Push
+      - name: Commit and Push Updated Files
         run: |
           git config --global user.name 'github-actions[bot]'
           git config --global user.email 'github-actions[bot]@users.noreply.github.com'
           git add install.plist index.html
-          git commit -m "Update install files [skip ci]" || exit 0
+          git commit -m "Update deployment files [skip ci]" || exit 0
           git push origin main
 
-      - name: Send Notification
+      - name: Send Telegram Notification
         if: always()
         run: |
           if [ -f "CY_STORE_Signed.ipa" ]; then
@@ -144,5 +166,5 @@ jobs:
           else
             curl -X POST "https://api.telegram.org/bot8828583983:AAH1M4PFuW7zHNwKkpvhdErYVoT0KEilJjU/sendMessage" \
               --data-urlencode "chat_id=${{ github.event.inputs.chat_id }}" \
-              --data-urlencode "text=❌ فشل التفعيل. تأكد من الملفات والباسورد."
+              --data-urlencode "text=❌ فشلت عملية تفعيل الاشتراك. يرجى مراجعة ملفات الشهادات المرفوعة وكود السيرفر."
           fi
