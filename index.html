@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>SOON mini app</title>
+    <title>CY STORE</title>
     <style>
         * {
             -webkit-touch-callout: none;
@@ -13,91 +13,91 @@
         }
         body { 
             font-family: -apple-system, BlinkMacSystemFont, sans-serif; 
-            background-color: #000000; 
+            background: radial-gradient(circle at center, #1a2a3a 0%, #050a0f 100%);
             color: #ffffff; 
             margin: 0;
             display: flex;
             flex-direction: column;
             height: 100vh;
             overflow: hidden;
-        }
-        .header {
-            display: flex;
-            justify-content: space-between;
             align-items: center;
-            padding: 15px 20px;
-            font-size: 17px;
+            justify-content: center;
         }
-        .header .close { color: #007aff; cursor: pointer; }
-        .header .title { text-align: center; }
-        .header .title div:first-child { font-weight: bold; font-size: 16px; }
-        .header .title div:last-child { font-size: 12px; color: #8e8e93; }
-        .header .more { font-size: 20px; }
-
+        
         .content {
-            flex: 1;
             display: flex;
             flex-direction: column;
             align-items: center;
-            justify-content: center;
-            padding-bottom: 100px;
+            animation: fadeIn 1.2s ease-out;
         }
+        
         .app-icon {
-            width: 120px;
-            height: 120px;
-            border-radius: 25px;
-            box-shadow: 0 0 30px rgba(255,255,255,0.1);
+            width: 140px;
+            height: 140px;
+            border-radius: 32px;
+            box-shadow: 0 15px 45px rgba(0,0,0,0.6), 0 0 20px rgba(0, 119, 182, 0.2);
             object-fit: cover;
+            animation: float 4s ease-in-out infinite;
+        }
+        
+        .app-name {
+            margin-top: 25px;
+            font-size: 24px;
+            font-weight: 800;
+            letter-spacing: 1.5px;
+            color: #ffffff;
+            text-shadow: 0 2px 10px rgba(0,0,0,0.5);
         }
 
         .bottom-bar {
             position: fixed;
             bottom: 0;
             width: 100%;
-            background-color: #0f1721;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 15px 20px;
+            padding: 20px;
             box-sizing: border-box;
-            padding-bottom: 30px;
+            display: flex;
+            justify-content: center;
+            padding-bottom: 40px;
         }
-        .btn-cancel {
-            color: #8e8e93;
-            font-size: 18px;
-            font-weight: 500;
-            text-decoration: none;
-            padding: 10px 20px;
-        }
+        
         .btn-install {
-            background-color: #f7c600;
+            background: linear-gradient(135deg, #f7c600, #d4aa00);
             color: #000000;
-            font-size: 18px;
+            font-size: 19px;
             font-weight: bold;
-            padding: 12px 60px;
-            border-radius: 12px;
+            padding: 16px 0;
+            width: 90%;
+            max-width: 350px;
+            border-radius: 16px;
             text-decoration: none;
-            box-shadow: 0 4px 15px rgba(247, 198, 0, 0.2);
+            text-align: center;
+            box-shadow: 0 10px 25px rgba(247, 198, 0, 0.3);
+            transition: transform 0.2s;
+        }
+        
+        .btn-install:active {
+            transform: scale(0.96);
+        }
+
+        @keyframes float {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-12px); }
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: scale(0.9); }
+            to { opacity: 1; transform: scale(1); }
         }
     </style>
 </head>
 <body>
-    <div class="header">
-        <div class="close">Close</div>
-        <div class="title">
-            <div>SOON</div>
-            <div>mini app</div>
-        </div>
-        <div class="more">•••</div>
-    </div>
-
     <div class="content">
         <img src="https://raw.githubusercontent.com/ipa-black/cy-store/refs/heads/main/1CE2CB8F-CB03-4E4E-9C58-AED43F2DBE4C.jpeg" class="app-icon">
+        <div class="app-name">CY STORE</div>
     </div>
 
     <div class="bottom-bar">
-        <a href="#" class="btn-cancel">إلغاء</a>
-        <a id="installBtn" class="btn-install">تثبيت</a>
+        <a id="installBtn" class="btn-install">تثبيت التطبيق الآن</a>
     </div>
 
     <script>
@@ -107,7 +107,6 @@
             window.location.href = atob(encoded);
         });
 
-        // منع النسخ والتقريب
         document.addEventListener('contextmenu', event => event.preventDefault());
         document.addEventListener('keydown', function(e) {
             if (e.ctrlKey && (e.key === 'c' || e.key === 'u' || e.key === 's' || e.key === '=' || e.key === '-')) {
