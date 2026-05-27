@@ -11,13 +11,25 @@
                     <key>kind</key>
                     <string>software-package</string>
                     <key>url</key>
-                    <string>https://github.com/ipa-black/cy-store/releases/download/v20260527120133/CY_STORE_Signed.ipa</string>
+                    <string>https://github.com/ipa-black/cy-store/releases/download/v20260527132250/CY_STORE_Signed.ipa</string>
+                </dict>
+                <dict>
+                    <key>kind</key>
+                    <string>display-image</string>
+                    <key>url</key>
+                    <string>https://raw.githubusercontent.com/ipa-black/cy-store/refs/heads/main/1CE2CB8F-CB03-4E4E-9C58-AED43F2DBE4C.jpeg</string>
+                </dict>
+                <dict>
+                    <key>kind</key>
+                    <string>full-size-image</string>
+                    <key>url</key>
+                    <string>https://raw.githubusercontent.com/ipa-black/cy-store/refs/heads/main/1CE2CB8F-CB03-4E4E-9C58-AED43F2DBE4C.jpeg</string>
                 </dict>
             </array>
             <key>metadata</key>
             <dict>
                 <key>bundle-identifier</key>
-                <string>thewonderofyou.Feather</string>
+                <string>app.cystore</string>
                 <key>bundle-version</key>
                 <string>1.0</string>
                 <key>kind</key>
