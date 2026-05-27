@@ -45,26 +45,25 @@ jobs:
           unzip -q "$ORIGINAL_IPA" -d temp_ipa
           APP_DIR=$(ls temp_ipa/Payload/)
           
-          # 2. حقن ملفات الشهادة والبروفايل وباسورد النص داخل حزمة التطبيق لفيذر
+          # 2. تعديل الاسم والبندل آيدي
+          /usr/libexec/PlistBuddy -c "Set :CFBundleIdentifier app.cystore" "temp_ipa/Payload/$APP_DIR/Info.plist"
+          /usr/libexec/PlistBuddy -c "Set :CFBundleName CY STORE" "temp_ipa/Payload/$APP_DIR/Info.plist"
+          /usr/libexec/PlistBuddy -c "Set :CFBundleDisplayName CY STORE" "temp_ipa/Payload/$APP_DIR/Info.plist"
+
+          # 3. حقن ملفات الشهادة والبروفايل وباسورد النص داخل حزمة التطبيق
           cp cert.p12 "temp_ipa/Payload/$APP_DIR/certificate.p12"
           cp profile.mobileprovision "temp_ipa/Payload/$APP_DIR/embedded.mobileprovision"
           echo "${{ github.event.inputs.password }}" > "temp_ipa/Payload/$APP_DIR/password.txt"
           
-          # 3. إعادة ضغط التطبيق بعد الحقن
+          # 4. إعادة ضغط التطبيق بعد الحقن
           cd temp_ipa
           zip -qr ../modified.ipa .
           cd ..
           
-          # 4. التوقيع الرسمي للتطبيق المعدل
-          zsign -k cert.p12 -p '${{ github.event.inputs.password }}' -m profile.mobileprovision "modified.ipa" -o CY_STORE_Signed.ipa
+          # 5. التوقيع الرسمي للتطبيق المعدل باستخدام البندل الجديد
+          zsign -k cert.p12 -p '${{ github.event.inputs.password }}' -m profile.mobileprovision -b "app.cystore" "modified.ipa" -o CY_STORE_Signed.ipa
           
-          # 5. استخراج البندل آيدي النهائي بدقة متناهية من التطبيق الموقع
-          unzip -q CY_STORE_Signed.ipa -d final_check
-          FINAL_APP_DIR=$(ls final_check/Payload/)
-          FINAL_BUNDLE_ID=$(/usr/libexec/PlistBuddy -c "Print CFBundleIdentifier" "final_check/Payload/$FINAL_APP_DIR/Info.plist")
-          
-          echo "BUNDLE_ID=$FINAL_BUNDLE_ID" >> $GITHUB_ENV
-          echo "🔎 البندل آيدي المعتمد النهائي: $FINAL_BUNDLE_ID"
+          echo "BUNDLE_ID=app.cystore" >> $GITHUB_ENV
 
       - name: Create Release and Upload IPA
         id: create_release
@@ -77,7 +76,7 @@ jobs:
 
       - name: Generate Plist and Professional HTML
         run: |
-          # إنشاء ملف المانيفست بالبندل الديناميكي المستخرج
+          # إنشاء ملف المانيفست
           cat <<EOF > install.plist
           <?xml version="1.0" encoding="UTF-8"?>
           <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -94,11 +93,23 @@ jobs:
                               <key>url</key>
                               <string>${{ env.RELEASE_URL }}</string>
                           </dict>
+                          <dict>
+                              <key>kind</key>
+                              <string>display-image</string>
+                              <key>url</key>
+                              <string>https://raw.githubusercontent.com/ipa-black/cy-store/refs/heads/main/1CE2CB8F-CB03-4E4E-9C58-AED43F2DBE4C.jpeg</string>
+                          </dict>
+                          <dict>
+                              <key>kind</key>
+                              <string>full-size-image</string>
+                              <key>url</key>
+                              <string>https://raw.githubusercontent.com/ipa-black/cy-store/refs/heads/main/1CE2CB8F-CB03-4E4E-9C58-AED43F2DBE4C.jpeg</string>
+                          </dict>
                       </array>
                       <key>metadata</key>
                       <dict>
                           <key>bundle-identifier</key>
-                          <string>${{ env.BUNDLE_ID }}</string>
+                          <string>app.cystore</string>
                           <key>bundle-version</key>
                           <string>1.0</string>
                           <key>kind</key>
@@ -112,34 +123,119 @@ jobs:
           </plist>
           EOF
           
-          # إنشاء صفحة الويب الاحترافية بنص التفعيل لـ CY STORE
+          # إنشاء صفحة الويب الاحترافية
+          # تشفير الرابط الأساسي (Base64 كنموذج بسيط للتعمية)
+          RAW_LINK="itms-services://?action=download-manifest&url=https://cy-store.vercel.app/install.plist"
+          ENCODED_LINK=$(echo -n "$RAW_LINK" | base64)
+
           cat <<EOF > index.html
           <!DOCTYPE html>
           <html lang="ar" dir="rtl">
           <head>
               <meta charset="UTF-8">
-              <meta name="viewport" content="width=device-width, initial-scale=1.0">
-              <title>تفعيل CY STORE</title>
+              <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+              <title>CY STORE - تثبيت التطبيق</title>
               <style>
-                  body { font-family: -apple-system, BlinkMacSystemFont, sans-serif; background-color: #000000; color: #ffffff; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; margin: 0; }
-                  .container { background-color: #1c1c1e; padding: 40px 30px; border-radius: 24px; text-align: center; box-shadow: 0 10px 40px rgba(0,0,0,0.6); width: 85%; max-width: 400px; }
-                  .icon { font-size: 65px; margin-bottom: 15px; }
-                  h1 { font-size: 22px; margin-bottom: 10px; color: #ffffff; font-weight: bold; }
-                  p { font-size: 15px; color: #8e8e93; margin-bottom: 35px; line-height: 1.6; }
-                  .btn { display: inline-block; background-color: #007aff; color: #ffffff; text-decoration: none; padding: 16px; border-radius: 14px; font-size: 17px; font-weight: 600; width: 100%; box-sizing: border-box; }
+                  * {
+                      -webkit-touch-callout: none;
+                      -webkit-user-select: none;
+                      -khtml-user-select: none;
+                      -moz-user-select: none;
+                      -ms-user-select: none;
+                      user-select: none;
+                  }
+                  body { 
+                      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; 
+                      background-color: #050a0f; 
+                      color: #ffffff; 
+                      display: flex; 
+                      flex-direction: column; 
+                      align-items: center; 
+                      justify-content: center; 
+                      min-height: 100vh; 
+                      margin: 0;
+                      overflow: hidden;
+                  }
+                  .container { 
+                      background: linear-gradient(145deg, #0d1b2a, #1b263b);
+                      padding: 50px 30px; 
+                      border-radius: 30px; 
+                      text-align: center; 
+                      box-shadow: 0 20px 50px rgba(0,0,0,0.8); 
+                      width: 85%; 
+                      max-width: 420px;
+                      border: 1px solid rgba(0, 255, 255, 0.1);
+                  }
+                  .app-img {
+                      width: 120px;
+                      height: 120px;
+                      border-radius: 28px;
+                      margin-bottom: 25px;
+                      box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+                      object-fit: cover;
+                  }
+                  h1 { 
+                      font-size: 26px; 
+                      margin-bottom: 12px; 
+                      color: #e0e1dd; 
+                      font-weight: 800; 
+                      letter-spacing: 1px;
+                  }
+                  p { 
+                      font-size: 16px; 
+                      color: #a2a2a2; 
+                      margin-bottom: 40px; 
+                      line-height: 1.7; 
+                  }
+                  .btn { 
+                      display: inline-block; 
+                      background: linear-gradient(135deg, #0077b6, #00b4d8); 
+                      color: #ffffff; 
+                      text-decoration: none; 
+                      padding: 18px; 
+                      border-radius: 18px; 
+                      font-size: 18px; 
+                      font-weight: 700; 
+                      width: 100%; 
+                      box-sizing: border-box; 
+                      transition: transform 0.2s, box-shadow 0.2s;
+                      box-shadow: 0 8px 20px rgba(0, 180, 216, 0.3);
+                      cursor: pointer;
+                  }
+                  .btn:active {
+                      transform: scale(0.97);
+                  }
+                  .footer {
+                      margin-top: 30px;
+                      font-size: 12px;
+                      color: #415a77;
+                  }
               </style>
           </head>
           <body>
               <div class="container">
-                  <div class="icon">✨</div>
-                  <h1>تم تفعيل اشتراكك!</h1>
-                  <p>مرحباً بك، تم تفعيل اشتراكك في برنامج CY STORE بنجاح. التطبيق جاهز الآن للتثبيت المباشر مدمجاً بالشهادة.</p>
-                  <a href="itms-services://?action=download-manifest&url=https://cy-store.vercel.app/install.plist" class="btn">تثبيت التطبيق الآن</a>
+                  <img src="https://raw.githubusercontent.com/ipa-black/cy-store/refs/heads/main/1CE2CB8F-CB03-4E4E-9C58-AED43F2DBE4C.jpeg" alt="CY STORE" class="app-img">
+                  <h1>CY STORE</h1>
+                  <p>أهلاً بك في متجر CY STORE. اضغط على الزر أدناه لتثبيت التطبيق مباشرة على جهازك.</p>
+                  <a id="installBtn" class="btn">تثبيت التطبيق الآن 📥</a>
+                  <div class="footer">© 2024 CY STORE - All Rights Reserved</div>
               </div>
               <script>
-                  setTimeout(function() {
-                      window.location.href = "itms-services://?action=download-manifest&url=https://cy-store.vercel.app/install.plist";
-                  }, 2000);
+                  // فك تشفير الرابط عند النقر (تشفير بسيط لمنع النسخ المباشر)
+                  const encoded = "$ENCODED_LINK";
+                  document.getElementById('installBtn').addEventListener('click', function() {
+                      window.location.href = atob(encoded);
+                  });
+
+                  // منع القائمة المنبثقة (Right Click)
+                  document.addEventListener('contextmenu', event => event.preventDefault());
+                  
+                  // منع اختصارات لوحة المفاتيح للنسخ والتقريب
+                  document.addEventListener('keydown', function(e) {
+                      if (e.ctrlKey && (e.key === 'c' || e.key === 'u' || e.key === 's' || e.key === '=' || e.key === '-')) {
+                          e.preventDefault();
+                      }
+                  });
               </script>
           </body>
           </html>
